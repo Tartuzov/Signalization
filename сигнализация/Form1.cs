@@ -8,17 +8,20 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Media;
 using System.Threading;
-
+using System.Threading.Tasks;
 namespace сигнализация
 {
     public partial class Form1 : Form
     {
         string path;
+        string path2 = "";
+        private SoundPlayer simpleSound;
         int x = 0;
         int y = 0;
         int loop = 5;
         bool loopalltime = false;
         bool signal = false;
+        //private CancellationTokenSource cancellationTokenSource;
         public Form1()
         {
             Size = new Size(347, 178);
@@ -27,15 +30,14 @@ namespace сигнализация
             path.Remove(path.Length - 17);
             button3.Enabled = false;
             textBox1.Text = "5";
+            path2 = Path.GetFileName(path + "\\signal.wav");
             string path1 = Path.GetFileName(path + "\\Point.txt");
             StreamReader sw = new StreamReader(path1);
+            simpleSound = new SoundPlayer(path2);
             x = Int32.Parse(sw.ReadLine());
             y = Int32.Parse(sw.ReadLine());
             sw.Close();
-        }
-
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
+            cancellationTokenSource = new CancellationTokenSource();
         }
         private void timer1_Tick(object sender, EventArgs e)
         {
@@ -53,69 +55,58 @@ namespace сигнализация
         static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
         public void CaptureWindow(IntPtr handle)
         {
-            if (checkBox1.Checked)
-            {
-                textBox1.Enabled = false;
-            }
+            if (this.checkBox1.Checked)
+                this.textBox1.Enabled = false;
             else
-                textBox1.Enabled = true;
-            // Get the size of the window to capture
+                this.textBox1.Enabled = true;
             Rectangle rect = new Rectangle();
-            GetWindowRect(handle, ref rect);
+            Form1.GetWindowRect(handle, ref rect);
             Rectangle bounds = Screen.GetBounds(Point.Empty);
-            rect = bounds;
-            // GetWindowRect returns Top/Left and Bottom/Right, so fix it
-            rect.Width = rect.Width - rect.X;
-            rect.Height = rect.Height - rect.Y;
-            string path1 = Path.GetFileName(path + "\\signal.wav");
-            if (signal)
+            bounds.Width -= bounds.X;
+            bounds.Height -= bounds.Y;
+            string fileName = Path.GetFileName(this.path + "\\signal.wav");
+            if (this.signal)
             {
                 Thread.Sleep(100);
-                SoundPlayer simpleSound = new SoundPlayer(path1);
-                if (loopalltime)
+                SoundPlayer soundPlayer = new SoundPlayer(fileName);
+                if (this.loopalltime)
                 {
-                    simpleSound.Play();
+                    soundPlayer.Play();
                     Thread.Sleep(500);
                 }
                 else
                 {
-                    for (int i = 0; i < loop * 2; i++)
+                    for (int index = 0; index < this.loop * 2; ++index)
                     {
-                        simpleSound.Play();
+                        soundPlayer.Play();
                         Thread.Sleep(500);
                     }
-                    signal = false;
-                    timer1.Stop();
-                    button2.Enabled = true;
-                    button3.Enabled = false;
-                    button2.BackColor = Color.FromArgb(224, 224, 224);
+                    this.signal = false;
+                    this.timer1.Stop();
+                    this.button2.Enabled = true;
+                    this.button3.Enabled = false;
+                    this.button2.BackColor = Color.FromArgb(224, 224, 224);
                 }
-
             }
             else
             {
-                // Create a bitmap to draw the capture into
-                using (Bitmap bitmap = new Bitmap(rect.Width, rect.Height))
+                using (Bitmap bitmap = new Bitmap(bounds.Width, bounds.Height))
                 {
-                    // Use PrintWindow to draw the window into our bitmap
-                    using (Graphics g = Graphics.FromImage(bitmap))
+                    using (Graphics graphics = Graphics.FromImage((Image)bitmap))
+                        graphics.CopyFromScreen(Point.Empty, Point.Empty, bounds.Size);
+                    Color pixel = bitmap.GetPixel(this.x, this.y);
+                    int r = (int)pixel.R;
+                    pixel = bitmap.GetPixel(this.x, this.y);
+                    int g = (int)pixel.G;
+                    pixel = bitmap.GetPixel(this.x, this.y);
+                    int b = (int)pixel.B;
+                    if (r <= 140 || r >= 200 || g <= 0 || g >= 40 || b <= 200 || b >= 260)
                     {
-                        g.CopyFromScreen(Point.Empty, Point.Empty, rect.Size);
-                    }
-                    int pixelColor = bitmap.GetPixel(x, y).R;
-                    int pixelColor1 = bitmap.GetPixel(x, y).G;
-                    int pixelColor2 = bitmap.GetPixel(x, y).B;
-                    if ((pixelColor <= 140 || pixelColor >= 200) || (pixelColor1 <= 0 || pixelColor1 >= 40) || (pixelColor2 <= 200 || pixelColor2 >= 260))
-                    {
-                        signal = true;
-                        button2.BackColor = Color.Red;
+                        this.signal = true;
+                        this.button2.BackColor = Color.Red;
                     }
                     else
-                    {
-                        signal = false;
-                    }
-                    // Save it as a .png just to demo this
-                    //bitmap.Save("Example.png");
+                        this.signal = false;
                 }
             }
         }
@@ -135,13 +126,14 @@ namespace сигнализация
 
         private void button3_Click(object sender, EventArgs e)
         {
+            simpleSound.Stop();
             timer1.Enabled = false;
             button2.Enabled = true;
             button3.Enabled = false;
             button2.BackColor = Color.FromArgb(224, 224, 224);
             signal = false;
+            cancellationTokenSource.Cancel();
         }
-
         private void button4_Click(object sender, EventArgs e)
         {
             Rectangle rect = Screen.GetBounds(Point.Empty);
