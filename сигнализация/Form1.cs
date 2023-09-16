@@ -126,7 +126,6 @@ namespace сигнализация
             button2.BackColor = Color.FromArgb(224, 224, 224);
             signal = false;
         }
-
         private void button4_Click(object sender, EventArgs e)
         {
             Rectangle rect = Screen.GetBounds(Point.Empty);
@@ -156,7 +155,6 @@ namespace сигнализация
             y = Int32.Parse(sw.ReadLine());
             sw.Close();
         }
-
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
             if (textBox1.Text != "")
@@ -169,7 +167,6 @@ namespace сигнализация
                 loop = 1;
             }
         }
-
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
             if (checkBox1.Checked)
