@@ -8,17 +8,22 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System.Media;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace сигнализация
 {
     public partial class Form1 : Form
     {
         string path;
+        string path2;
         int x = 0;
         int y = 0;
         int loop = 5;
         bool loopalltime = false;
         bool signal = false;
+        SoundPlayer simpleSound;
+        private object soundLock = new object();
+        private CancellationTokenSource cancellationTokenSource;
         public Form1()
         {
             Size = new Size(347, 178);
@@ -28,14 +33,12 @@ namespace сигнализация
             button3.Enabled = false;
             textBox1.Text = "5";
             string path1 = Path.GetFileName(path + "\\Point.txt");
+            path2 = Path.GetFileName(path + "\\signal.wav");
             StreamReader sw = new StreamReader(path1);
+            cancellationTokenSource = new CancellationTokenSource();
             x = Int32.Parse(sw.ReadLine());
             y = Int32.Parse(sw.ReadLine());
             sw.Close();
-        }
-
-        private void pictureBox1_Click(object sender, EventArgs e)
-        {
         }
         private void timer1_Tick(object sender, EventArgs e)
         {
@@ -64,33 +67,12 @@ namespace сигнализация
             GetWindowRect(handle, ref rect);
             Rectangle bounds = Screen.GetBounds(Point.Empty);
             rect = bounds;
-            // GetWindowRect returns Top/Left and Bottom/Right, so fix it
             rect.Width = rect.Width - rect.X;
             rect.Height = rect.Height - rect.Y;
-            string path1 = Path.GetFileName(path + "\\signal.wav");
+            simpleSound = new SoundPlayer(path2);
             if (signal)
             {
-                Thread.Sleep(100);
-                SoundPlayer simpleSound = new SoundPlayer(path1);
-                if (loopalltime)
-                {
-                    simpleSound.Play();
-                    Thread.Sleep(500);
-                }
-                else
-                {
-                    for (int i = 0; i < loop * 2; i++)
-                    {
-                        simpleSound.Play();
-                        Thread.Sleep(500);
-                    }
-                    signal = false;
-                    timer1.Stop();
-                    button2.Enabled = true;
-                    button3.Enabled = false;
-                    button2.BackColor = Color.FromArgb(224, 224, 224);
-                }
-
+                Task.Run(() => PlaySound(cancellationTokenSource.Token));
             }
             else
             {
@@ -135,6 +117,9 @@ namespace сигнализация
 
         private void button3_Click(object sender, EventArgs e)
         {
+            simpleSound = new SoundPlayer();
+            simpleSound.Stop();
+            cancellationTokenSource.Cancel();
             timer1.Enabled = false;
             button2.Enabled = true;
             button3.Enabled = false;
@@ -192,6 +177,43 @@ namespace сигнализация
             else
             {
                 loopalltime = false;
+            }
+        }
+        private void PlaySound(CancellationToken cancellationToken)
+        {
+            try
+            {
+                if (loopalltime)
+                {
+                    simpleSound.Play();
+                    Thread.Sleep(500);
+                }
+                else
+                {
+                    lock (soundLock)
+                    {
+                        for (int i = 0; i < loop*2; i++)
+                        {
+                            simpleSound.Play();
+                            Thread.Sleep(500);
+                        }
+                        signal = false;
+                        timer1.Stop();
+                        button2.Enabled = true;
+                        button3.Enabled = false;
+                        button2.BackColor = Color.FromArgb(224, 224, 224);
+                        if (button2.BackColor == Color.FromArgb(224, 224, 224))
+                        {
+                            simpleSound = new SoundPlayer();
+                            simpleSound.Stop();
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Вывести информацию об ошибке в консоль
+                MessageBox.Show("Ошибка воспроизведения звука: " + ex.Message);
             }
         }
     }
